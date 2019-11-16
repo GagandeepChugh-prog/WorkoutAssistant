@@ -3,6 +3,7 @@ package com.inducesmile.workoutassistant;
 import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
@@ -33,19 +34,21 @@ public class GPS_Logging extends AppCompatActivity implements OnMapReadyCallback
     Location mLastLocation;
     LocationRequest mLocationRequest;
 
-    TextView totalDistanceTravelled;
-    Long tsLong;
+    TextView totalDistanceTravelled,activity_text,average_text,laps_count;
+
+    Long tsLong,startTime,stopTime;
     String ts="";
     String FileName="data"+ts+".csv";
 
-    String start="Start Logging Data";
-    String stop="Stop Logging Data";
+    String start="Start Activity";
+    String stop="Stop Activity";
     Button dataLogger;
 
     boolean firstTimeInLocationManager=true;
     Double oldLatitude=0.0;
     Double oldLongitude=0.0;
     float totalDistance=0.0f;
+    String Lap_Length="";
 
 
     @Override
@@ -53,7 +56,16 @@ public class GPS_Logging extends AppCompatActivity implements OnMapReadyCallback
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_gps__logging);
         dataLogger=findViewById(R.id.start_stop_button);
-        totalDistanceTravelled=findViewById(R.id.totalDistance);
+        average_text=findViewById(R.id.yAxis);
+        laps_count=findViewById(R.id.zAxis);
+
+        final Intent intent = getIntent();
+        Lap_Length = intent.getExtras().getString("Length");
+
+        final String Activity_Text = intent.getExtras().getString("Activity");
+
+        totalDistanceTravelled=findViewById(R.id.totalSprints);
+        activity_text=findViewById(R.id.activity_text);
         dataLogger.setText(start);
         dataLogger.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -62,21 +74,26 @@ public class GPS_Logging extends AppCompatActivity implements OnMapReadyCallback
                     buildGoogleApiClient();
                     dataLogger.setText(stop);
                     tsLong = System.currentTimeMillis()/1000;
+                    startTime=System.currentTimeMillis()/1000;
                     ts = tsLong.toString();
                     FileName="data"+ts+".csv";
                 }
                 else
                 {
                     mGoogleApiClient.disconnect();
+                    stopTime=System.currentTimeMillis()/1000;
                     dataLogger.setText(start);
                     firstTimeInLocationManager=true;
-
+                    float avgSpeed= totalDistance/(stopTime-startTime);
+                    average_text.setText(String.valueOf(avgSpeed)+" m/sec");
 
 
                 }
 
             }
         });
+        activity_text.setText(Activity_Text);
+
     }
 
     protected synchronized void buildGoogleApiClient(){
@@ -177,8 +194,13 @@ public class GPS_Logging extends AppCompatActivity implements OnMapReadyCallback
 
             totalDistance=result[0]+totalDistance;
             String as=String.valueOf(totalDistance);
+            String[] ar=Lap_Length.split(" ");
 
-            totalDistanceTravelled.setText(as);
+            float lapLe=Float.parseFloat(ar[0]);
+            float lapCount=totalDistance/lapLe;
+            laps_count.setText(String.valueOf(lapCount));
+
+            totalDistanceTravelled.setText(as+" mtrs");
             oldLongitude=lonng;
             oldLatitude=lat;
             Toast.makeText(getApplicationContext(),"Insterted Value",Toast.LENGTH_LONG).show();
