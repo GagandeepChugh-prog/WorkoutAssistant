@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">WorkoutAssistant</string>
+    <string name="app_name">WorkoutAssistant2</string>
     <string-array name="choices">
         <item>    Choose Objective </item>
         <item>    Lap Count</item>
@@ -14,10 +14,10 @@
         <item>  1600 meter</item>
     </string-array>
 
-    <string-array name="lapactivity">
-        <item>    Select Activity </item>
-        <item>    Walking</item>
-        <item>    Running</item>
-        <item>    Jogging</item>
+    <string-array name="mode">
+        <item>    Select Mode </item>
+        <item>  Normal Mode</item>
+        <item>  Athletic Mode</item>
+
     </string-array>
 </resources>

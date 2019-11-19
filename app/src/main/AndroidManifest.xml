@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <application
         android:name=".Home"
@@ -15,7 +15,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".GPS_Logging"></activity>
+        <activity android:name=".select_Mode"></activity>
+        <activity android:name=".GPS_Logger_Normal" />
+        <activity android:name=".GPS_Logging" />
         <activity android:name=".SprintActivity" />
         <activity android:name=".Login" />
         <activity android:name=".LapCount" />
@@ -28,6 +30,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver android:name=".GeofenceBroadcastReceiver" />
 
         <meta-data
             android:name="preloaded_fonts"

@@ -1,25 +1,19 @@
 package com.inducesmile.workoutassistant;
 
 import android.Manifest;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.nfc.Tag;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.OnMapReadyCallback;
-
-import java.io.FileOutputStream;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -28,44 +22,63 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-public class GPS_Logging extends AppCompatActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, com.google.android.gms.location.LocationListener {
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.Geofence;
+import com.google.android.gms.location.GeofencingClient;
+import com.google.android.gms.location.GeofencingRequest;
+import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TreeMap;
+
+
+public class GPS_Logging extends AppCompatActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener, ResultCallback<Status> {
+
+    private static final String TAG = GPS_Logging.class.getSimpleName();
 
     GoogleApiClient mGoogleApiClient;
     Location mLastLocation;
     LocationRequest mLocationRequest;
 
-    TextView totalDistanceTravelled,activity_text,average_text,laps_count;
-
-    Long tsLong,startTime,stopTime;
+    TextView totalDistanceTravelled;
+    static TextView totalLapsCompleted;
+    Long tsLong;
     String ts="";
     String FileName="data"+ts+".csv";
 
-    String start="Start Activity";
-    String stop="Stop Activity";
+    String start="Start Logging Data";
+    String stop="Stop Logging Data";
     Button dataLogger;
 
     boolean firstTimeInLocationManager=true;
-    Double oldLatitude=0.0;
-    Double oldLongitude=0.0;
-    float totalDistance=0.0f;
-    String Lap_Length="";
+    static Double oldLatitude=0.0;
+    static Double oldLongitude=0.0;
+    static float totalDistance=0.0f;
+    static float lapDistance = 0.0f;
 
+    private GeofencingClient geofencingClient;
+    private PendingIntent geofencePendingIntent;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_gps__logging);
         dataLogger=findViewById(R.id.start_stop_button);
-        average_text=findViewById(R.id.yAxis);
-        laps_count=findViewById(R.id.zAxis);
-
-        final Intent intent = getIntent();
-        Lap_Length = intent.getExtras().getString("Length");
-
-        final String Activity_Text = intent.getExtras().getString("Activity");
-
-        totalDistanceTravelled=findViewById(R.id.totalSprints);
-        activity_text=findViewById(R.id.activity_text);
+        totalDistanceTravelled=findViewById(R.id.totalDistance);
+        totalLapsCompleted=findViewById(R.id.laps);
         dataLogger.setText(start);
         dataLogger.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -74,26 +87,22 @@ public class GPS_Logging extends AppCompatActivity implements OnMapReadyCallback
                     buildGoogleApiClient();
                     dataLogger.setText(stop);
                     tsLong = System.currentTimeMillis()/1000;
-                    startTime=System.currentTimeMillis()/1000;
                     ts = tsLong.toString();
                     FileName="data"+ts+".csv";
                 }
                 else
                 {
                     mGoogleApiClient.disconnect();
-                    stopTime=System.currentTimeMillis()/1000;
                     dataLogger.setText(start);
                     firstTimeInLocationManager=true;
-                    float avgSpeed= totalDistance/(stopTime-startTime);
-                    average_text.setText(String.valueOf(avgSpeed)+" m/sec");
+
 
 
                 }
 
             }
         });
-        activity_text.setText(Activity_Text);
-
+        geofencingClient = LocationServices.getGeofencingClient(this);
     }
 
     protected synchronized void buildGoogleApiClient(){
@@ -109,8 +118,8 @@ public class GPS_Logging extends AppCompatActivity implements OnMapReadyCallback
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         mLocationRequest=new LocationRequest();
-        mLocationRequest.setInterval(1000);
-        mLocationRequest.setFastestInterval(1000);
+        mLocationRequest.setInterval(3000);
+        mLocationRequest.setFastestInterval(3000);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         if (ContextCompat.checkSelfPermission(GPS_Logging.this,
                 Manifest.permission.ACCESS_FINE_LOCATION)
@@ -174,6 +183,9 @@ public class GPS_Logging extends AppCompatActivity implements OnMapReadyCallback
 
     }
 
+    private static int laps = 0;
+    private static TreeMap<Float, String> distanceMap = new TreeMap<>();
+
     @Override
     public void onLocationChanged(Location location) {
         String data=",,,";
@@ -186,27 +198,26 @@ public class GPS_Logging extends AppCompatActivity implements OnMapReadyCallback
             oldLatitude=lat;
             oldLongitude=lonng;
             totalDistance=0.0f;
-
+            lapDistance=0.0f;
+            startGeofence(oldLatitude, oldLongitude);
+            totalLapsCompleted.setText("0");
         }
         else{
             Location.distanceBetween(oldLatitude, oldLongitude,
                     lat, lonng, result);
 
             totalDistance=result[0]+totalDistance;
+            lapDistance=result[0]+lapDistance;
             String as=String.valueOf(totalDistance);
-            String[] ar=Lap_Length.split(" ");
 
-            float lapLe=Float.parseFloat(ar[0]);
-            float lapCount=totalDistance/lapLe;
-            laps_count.setText(String.valueOf(lapCount));
-
-            totalDistanceTravelled.setText(as+" mtrs");
+            totalDistanceTravelled.setText(as);
             oldLongitude=lonng;
             oldLatitude=lat;
-            Toast.makeText(getApplicationContext(),"Insterted Value",Toast.LENGTH_LONG).show();
+            //Toast.makeText(getApplicationContext(),"Insterted Value",Toast.LENGTH_LONG).show();
 
         }
-
+        distanceMap.put(lapDistance, lat.toString() + ',' + lonng.toString());
+        Log.i(TAG, distanceMap.get(lapDistance));
         data=""+lonng+","+lat+","+totalDistance+"\n";
         try {
             FileOutputStream fileOutputStream = openFileOutput(FileName, Context.MODE_APPEND);
@@ -219,10 +230,149 @@ public class GPS_Logging extends AppCompatActivity implements OnMapReadyCallback
         firstTimeInLocationManager=false;
     }
 
+    private String REQUEST_ID = "startLocation";
+    private float GEOFENCE_RADIUS = 50.0f;
+    private static final long GEO_DURATION = 60 * 60 * 1000;
+    private static String message;
+    private static final String NOTIFICATION_MSG = "NOTIFICATION MSG";
+
+    public static Intent makeNotificationIntent(Context context, String msg) {
+        Intent intent = new Intent( context, GPS_Logging.class );
+        intent.putExtra( NOTIFICATION_MSG, msg );
+        message = msg;
+        if(msg.contains("Remained"))
+        {
+            Log.i(TAG, "calling lapChange");
+            lapChange(context);
+        }
+        else if(msg.contains("Exiting"))
+        {
+            Toast.makeText(context, "Exiting Detected", Toast.LENGTH_LONG).show();
+        }
+        else if(msg.contains("Entering")){
+            Toast.makeText(context, "Entering the Geofence", Toast.LENGTH_LONG).show();
+            Log.i(TAG, "Entering the geofence");
+        }
+        return intent;
+    }
+
+    private static String getMapValue(float key){
+        Log.i(TAG, "key: " + key);
+        Map.Entry<Float,String> low = distanceMap.floorEntry(key);
+        Map.Entry<Float,String> high = distanceMap.ceilingEntry(key);
+        String res = null;
+        if (low != null && high != null) {
+            res = Math.abs(key-low.getKey()) < Math.abs(key-high.getKey())
+                    ?   low.getValue()
+                    :   high.getValue();
+        } else if (low != null || high != null) {
+            res = low != null ? low.getValue() : high.getValue();
+        }
+        Log.i(TAG, "res: " + res);
+        return res;
+    }
+
+    private static void lapChange(Context context) {
+//        distanceMap.put(0.0f, "30.767935,76.788814");
+//        distanceMap.put(93.03f, "30.768544,76.789908");
+//        distanceMap.put(185.55f, "30.769097,76.789661");
+//        distanceMap.put(280.00f, "30.768489,76.788513");
+        if(lapDistance > 360 && lapDistance < 500){
+            Toast.makeText(context, "Lap completed", Toast.LENGTH_LONG).show();
+            float unit = lapDistance/4;
+            Log.i(TAG, "unit: " + unit);
+            String[] a = getMapValue(0.0f).split(",", 2);
+            String[] b = getMapValue(unit).split(",", 2);
+            String[] c = getMapValue(2*unit).split(",", 2);
+            String[] d = getMapValue(3*unit).split(",", 2);
+            float[] diag_1 = new float[1];
+            float[] diag_2 = new float[1];
+            Location.distanceBetween(Double.valueOf(a[0]), Double.valueOf(a[1]), Double.valueOf(c[0]), Double.valueOf(c[1]), diag_1);
+            Location.distanceBetween(Double.valueOf(b[0]), Double.valueOf(b[1]), Double.valueOf(d[0]), Double.valueOf(d[1]), diag_2);
+            float area = 0.5f*diag_1[0]*diag_2[0];
+            Log.i(TAG, "Area: " + area);
+            if(area > 5000f && area < 10000f){
+                laps++;
+                totalLapsCompleted.setText(String.valueOf(laps));
+                Toast.makeText(context, "Valid Lap, Area: " + area, Toast.LENGTH_LONG).show();
+            }
+            else{
+                Toast.makeText(context, "Invalid Lap, Area: " + area, Toast.LENGTH_LONG).show();
+            }
+        }
+        else{
+            Toast.makeText(context, "Not a lap", Toast.LENGTH_LONG).show();
+        }
+        lapDistance = 0.0f;
+        distanceMap.clear();
+        //distanceMap.put(lapDistance, oldLatitude.toString() + "," + oldLongitude.toString());
+    }
+
+    private void startGeofence(double lat, double lng){
+        Geofence geofence = createGeofence(lat, lng);
+        GeofencingRequest geofencingRequest = createGeofencingRequest(geofence);
+        geofencingClient.addGeofences(geofencingRequest, createGeofencePendingIntent())
+                .addOnSuccessListener(this, new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        // Geofences added
+                        // ...
+                        Toast.makeText(getApplicationContext(), "Lap Started", Toast.LENGTH_LONG).show();
+                    }
+                })
+                .addOnFailureListener(this, new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        // Failed to add geofences
+                        // ...
+                        Toast.makeText(getApplicationContext(), "Failed to add geofence", Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    private Geofence createGeofence(double lat, double lng){
+        return new Geofence.Builder()
+                .setRequestId(REQUEST_ID)
+                .setCircularRegion(lat, lng, GEOFENCE_RADIUS)
+                .setExpirationDuration(GEO_DURATION)
+                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_EXIT | Geofence.GEOFENCE_TRANSITION_DWELL | Geofence.GEOFENCE_TRANSITION_ENTER)
+                .setLoiteringDelay(8000)
+                .build();
+    }
+
+    private GeofencingRequest createGeofencingRequest(Geofence geofence) {
+        GeofencingRequest.Builder builder = new GeofencingRequest.Builder();
+        builder.setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_DWELL);
+        builder.addGeofence(geofence);
+        return builder.build();
+    }
+
+    private PendingIntent createGeofencePendingIntent() {
+        // Reuse the PendingIntent if we already have it.
+        if (geofencePendingIntent != null) {
+            return geofencePendingIntent;
+        }
+        Intent intent = new Intent(this, GeofenceBroadcastReceiver.class);
+        // We use FLAG_UPDATE_CURRENT so that we get the same pending intent back when
+        // calling addGeofences() and removeGeofences().
+        geofencePendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.
+                FLAG_UPDATE_CURRENT);
+        return geofencePendingIntent;
+    }
 
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
 
+    }
+
+    @Override
+    public void onResult(@NonNull Status status) {
+        if ( status.isSuccess() ) {
+            Toast toast = Toast.makeText(this, status.toString(), Toast.LENGTH_LONG);
+            toast.show();
+        } else {
+            // inform about fail
+        }
     }
 }

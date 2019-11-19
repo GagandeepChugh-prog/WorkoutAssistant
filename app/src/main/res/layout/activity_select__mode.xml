@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/sngc"
-    tools:context=".LapCount">
+    tools:context=".select_Mode">
 
     <TextView
         android:id="@+id/textView2"
@@ -30,33 +30,18 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <Spinner
-        android:id="@+id/lap_length_spinner"
+        android:id="@+id/lap_Activity_spinner"
         android:layout_width="151dp"
-        android:layout_height="54dp"
+        android:layout_height="56dp"
         android:layout_alignParentStart="true"
         android:layout_alignParentLeft="true"
         android:layout_alignParentTop="true"
         android:layout_marginStart="128dp"
         android:layout_marginLeft="128dp"
-        android:layout_marginTop="227dp"
+        android:layout_marginTop="301dp"
         android:background="@drawable/roundedbutton"
+        android:dropDownWidth="match_parent"
+        android:fadeScrollbars="false"
         android:popupBackground="?attr/actionModeBackground" />
-
-    <Button
-        android:id="@+id/done"
-        android:layout_width="104dp"
-        android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentTop="true"
-        android:layout_marginStart="151dp"
-        android:layout_marginLeft="151dp"
-        android:layout_marginTop="463dp"
-        android:background="@drawable/roundedbutton"
-        android:text="CONTINUE"
-        android:textAppearance="@style/TextAppearance.AppCompat.Large"
-        android:textColor="@android:color/black"
-        android:textSize="16dp"
-        android:textStyle="bold" />
 
 </RelativeLayout>

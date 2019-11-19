@@ -38,7 +38,7 @@ public class ChooseObjective extends AppCompatActivity implements AdapterView.On
 
             if(parent.getItemAtPosition(position).equals("Lap Count"))
             {
-                Intent i = new Intent(ChooseObjective.this, LapCount.class);
+                Intent i = new Intent(ChooseObjective.this, select_Mode.class);
                 startActivity(i);
             }
             else if(parent.getItemAtPosition(position).equals("Sprint Count"))
